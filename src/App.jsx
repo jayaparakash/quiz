@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { questions } from "./data/questions";
 
-const QUIZ_DURATION = 20 * 60;
-const STORAGE_KEY = "quiz-master-pro-state";
+const QUIZ_DURATION = 35 * 60;
+const STORAGE_KEY = "quiz-master-pro-state-v2";
 
 const levelTone = {
   Easy: "tone-easy",
@@ -13,10 +13,21 @@ const levelTone = {
 const createInitialState = () => ({
   currentIndex: 0,
   selectedAnswers: {},
+  checkedCodeAnswers: {},
   showResults: false,
   timeLeft: QUIZ_DURATION,
   reviewMode: false,
 });
+
+const normalizeCodeAnswer = (value) =>
+  value
+    .trim()
+    .replace(/\r\n/g, "\n")
+    .replace(/\s+/g, " ")
+    .replace(/"/g, "'")
+    .replace(/\s*=\s*/g, "=")
+    .replace(/\s*>\s*/g, ">")
+    .replace(/\s*<\s*/g, "<");
 
 const loadStoredState = () => {
   if (typeof window === "undefined") {
@@ -41,6 +52,7 @@ const loadStoredState = () => {
     return {
       currentIndex: safeIndex,
       selectedAnswers: parsedState.selectedAnswers || {},
+      checkedCodeAnswers: parsedState.checkedCodeAnswers || {},
       showResults: Boolean(parsedState.showResults),
       timeLeft: safeTime,
       reviewMode: Boolean(parsedState.reviewMode),
@@ -77,12 +89,18 @@ const getPerformanceLabel = (score, total) => {
 function App() {
   const [quizState, setQuizState] = useState(loadStoredState);
   const { currentIndex, selectedAnswers, showResults, timeLeft, reviewMode } = quizState;
-
   const currentQuestion = questions[currentIndex];
-  const selectedOption = selectedAnswers[currentIndex];
-  const hasAnsweredCurrent = Boolean(selectedOption);
-  const isCurrentAnswerCorrect = selectedOption === currentQuestion.answer;
-  const answeredCount = Object.keys(selectedAnswers).length;
+  const selectedOption = selectedAnswers[currentIndex] || "";
+  const checkedCodeAnswers = quizState.checkedCodeAnswers || {};
+  const isCodeQuestion = currentQuestion.kind === "Code";
+  const hasAnsweredCurrent = Boolean(selectedOption.trim());
+  const isCurrentAnswerCorrect = isCodeQuestion
+    ? normalizeCodeAnswer(selectedOption) === normalizeCodeAnswer(currentQuestion.answer)
+    : selectedOption === currentQuestion.answer;
+  const hasCheckedCurrentCode = Boolean(checkedCodeAnswers[currentIndex]);
+  const answeredCount = questions.reduce((count, _question, index) => {
+    return count + (String(selectedAnswers[index] || "").trim() ? 1 : 0);
+  }, 0);
   const progress = (answeredCount / questions.length) * 100;
   const unansweredQuestions = questions.length - answeredCount;
   const allQuestionsAnswered = unansweredQuestions === 0;
@@ -135,6 +153,11 @@ function App() {
 
       if (selectedAnswers[index] === question.answer) {
         summaryMap[question.category].correct += 1;
+      } else if (
+        question.kind === "Code" &&
+        normalizeCodeAnswer(selectedAnswers[index] || "") === normalizeCodeAnswer(question.answer)
+      ) {
+        summaryMap[question.category].correct += 1;
       }
     });
 
@@ -153,6 +176,11 @@ function App() {
 
       if (selectedAnswers[index] === question.answer) {
         summaryMap[question.section].correct += 1;
+      } else if (
+        question.kind === "Code" &&
+        normalizeCodeAnswer(selectedAnswers[index] || "") === normalizeCodeAnswer(question.answer)
+      ) {
+        summaryMap[question.section].correct += 1;
       }
     });
 
@@ -170,6 +198,36 @@ function App() {
       selectedAnswers: {
         ...previousState.selectedAnswers,
         [currentIndex]: option,
+      },
+    }));
+  };
+
+  const handleCodeAnswerChange = (event) => {
+    const value = event.target.value;
+
+    setQuizState((previousState) => ({
+      ...previousState,
+      selectedAnswers: {
+        ...previousState.selectedAnswers,
+        [currentIndex]: value,
+      },
+      checkedCodeAnswers: {
+        ...previousState.checkedCodeAnswers,
+        [currentIndex]: false,
+      },
+    }));
+  };
+
+  const handleCheckCodeAnswer = () => {
+    if (!hasAnsweredCurrent) {
+      return;
+    }
+
+    setQuizState((previousState) => ({
+      ...previousState,
+      checkedCodeAnswers: {
+        ...previousState.checkedCodeAnswers,
+        [currentIndex]: true,
       },
     }));
   };
@@ -278,7 +336,10 @@ function App() {
             <section className="review-list">
               {questions.map((question, index) => {
                 const selectedOption = selectedAnswers[index];
-                const isCorrect = selectedOption === question.answer;
+                const isCorrect =
+                  question.kind === "Code"
+                    ? normalizeCodeAnswer(selectedOption || "") === normalizeCodeAnswer(question.answer)
+                    : selectedOption === question.answer;
 
                 return (
                   <article className="review-card" key={question.id}>
@@ -294,6 +355,11 @@ function App() {
                       </div>
                     </div>
                     <h3>{question.question}</h3>
+                    {question.codeSnippet ? (
+                      <pre className="code-box review-code-box">
+                        <code>{question.codeSnippet}</code>
+                      </pre>
+                    ) : null}
                     <p>
                       <strong>Your answer:</strong> {selectedOption || "Not answered"}
                     </p>
@@ -333,9 +399,9 @@ function App() {
           </div>
 
           <p className="hero-copy">
-            A 30-question HTML and CSS challenge with Easy, Medium, and Tough sections. Your
-            progress stays saved even if the page refreshes, and submission unlocks only after
-            all questions are answered.
+            A 50-question HTML and CSS exam with 25 theory questions and 25 code-based
+            questions. It covers HTML through HTML5 features plus CSS implementation,
+            selectors, and box model only.
           </p>
 
           <div className="progress-panel">
@@ -403,6 +469,7 @@ function App() {
               <div className="review-tags">
                 <span className="pill">{currentQuestion.section}</span>
                 <span className="pill">{currentQuestion.category}</span>
+                <span className="pill kind-pill">{currentQuestion.kind}</span>
                 <span className={`pill ${levelTone[currentQuestion.difficulty]}`}>
                   {currentQuestion.difficulty}
                 </span>
@@ -411,34 +478,78 @@ function App() {
 
             <h2>{currentQuestion.question}</h2>
 
-            <div className="options-list">
-              {currentQuestion.options.map((option) => {
-                const isSelected = selectedOption === option;
-                const isCorrectOption = option === currentQuestion.answer;
-                const optionStateClass = hasAnsweredCurrent
-                  ? isCorrectOption
-                    ? "is-correct"
-                    : isSelected
-                      ? "is-wrong"
-                      : "is-dimmed"
-                  : "";
+            {currentQuestion.codeSnippet ? (
+              <div className="code-panel">
+                <div className="code-panel-head">
+                  <span className="eyebrow">Code Section</span>
+                </div>
+                <pre className="code-box">
+                  <code>{currentQuestion.codeSnippet}</code>
+                </pre>
+              </div>
+            ) : null}
 
-                return (
+            {isCodeQuestion ? (
+              <div className="code-answer-panel">
+                <label className="code-answer-label" htmlFor={`code-answer-${currentQuestion.id}`}>
+                  Write your code answer
+                </label>
+                <textarea
+                  id={`code-answer-${currentQuestion.id}`}
+                  className="code-answer-input"
+                  value={selectedOption}
+                  onChange={handleCodeAnswerChange}
+                  placeholder="Type the correct HTML or CSS code here..."
+                  spellCheck="false"
+                />
+                <div className="code-answer-actions">
                   <button
-                    key={option}
-                    className={`option-card ${isSelected ? "selected" : ""} ${optionStateClass}`}
-                    onClick={() => handleSelectAnswer(option)}
+                    className="primary-btn"
+                    onClick={handleCheckCodeAnswer}
+                    disabled={!hasAnsweredCurrent}
                   >
-                    <span className="option-marker">
-                      {hasAnsweredCurrent ? isCorrectOption ? "OK" : isSelected ? "NO" : "" : isSelected ? "OK" : ""}
-                    </span>
-                    <span>{option}</span>
+                    OK
                   </button>
-                );
-              })}
-            </div>
+                </div>
+              </div>
+            ) : (
+              <div className="options-list">
+                {currentQuestion.options.map((option) => {
+                  const isSelected = selectedOption === option;
+                  const isCorrectOption = option === currentQuestion.answer;
+                  const optionStateClass = hasAnsweredCurrent
+                    ? isCorrectOption
+                      ? "is-correct"
+                      : isSelected
+                        ? "is-wrong"
+                        : "is-dimmed"
+                    : "";
 
-            {hasAnsweredCurrent ? (
+                  return (
+                    <button
+                      key={option}
+                      className={`option-card ${isSelected ? "selected" : ""} ${optionStateClass}`}
+                      onClick={() => handleSelectAnswer(option)}
+                    >
+                      <span className="option-marker">
+                        {hasAnsweredCurrent
+                          ? isCorrectOption
+                            ? "OK"
+                            : isSelected
+                              ? "NO"
+                              : ""
+                          : isSelected
+                            ? "OK"
+                            : ""}
+                      </span>
+                      <span>{option}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {hasAnsweredCurrent && (!isCodeQuestion || hasCheckedCurrentCode) ? (
               <div className={`answer-feedback ${isCurrentAnswerCorrect ? "feedback-correct" : "feedback-wrong"}`}>
                 <strong>{isCurrentAnswerCorrect ? "Correct answer." : "Wrong answer."}</strong>
                 <span> Correct answer: {currentQuestion.answer}</span>

@@ -231,6 +231,11 @@ h3 {
   gap: 0.6rem;
 }
 
+.kind-pill {
+  color: #ffe5bf;
+  background: rgba(255, 194, 122, 0.14);
+}
+
 .section-chip {
   display: inline-flex;
   align-items: center;
@@ -350,6 +355,70 @@ h3 {
 
 .option-card.is-dimmed {
   opacity: 0.72;
+}
+
+.code-panel {
+  border: 1px solid rgba(123, 198, 255, 0.16);
+  border-radius: 22px;
+  background: rgba(10, 12, 20, 0.82);
+  overflow: hidden;
+}
+
+.code-panel-head {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.code-box {
+  margin: 0;
+  padding: 1rem;
+  overflow-x: auto;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #d8efff;
+  white-space: pre-wrap;
+}
+
+.review-code-box {
+  margin: 0.9rem 0;
+  border-radius: 18px;
+  background: rgba(7, 10, 17, 0.86);
+}
+
+.code-answer-panel {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.code-answer-label {
+  color: #e7f4ff;
+  font-weight: 600;
+}
+
+.code-answer-input {
+  width: 100%;
+  min-height: 180px;
+  padding: 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(123, 198, 255, 0.18);
+  background: rgba(7, 10, 17, 0.88);
+  color: #d8efff;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.code-answer-input:focus {
+  outline: 2px solid rgba(123, 198, 255, 0.32);
+  border-color: rgba(123, 198, 255, 0.4);
+}
+
+.code-answer-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .option-marker {
